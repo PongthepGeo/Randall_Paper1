@@ -242,7 +242,53 @@ def evaluate(model, device, val_loader, criterion):
 	val_acc /= len(val_loader.dataset)
 	return val_loss, val_acc
 
-def ResNet_achitecture_choices(ResNet_achitecture, input_channels):
+def train_3_channel(model, iterator, optimizer, criterion, device):
+	epoch_loss = 0; epoch_acc = 0
+	model.train()
+	for (x, y) in tqdm(iterator, desc='Training', leave=False):
+		x = x.to(device)
+		y = y.to(device)
+		optimizer.zero_grad()
+		y_pred, _ = model(x)
+		loss = criterion(y_pred, y)
+		acc = calculate_accuracy(y_pred, y)
+		loss.backward()
+		optimizer.step()
+		epoch_loss += loss.item()
+		epoch_acc += acc.item()
+	return epoch_loss / len(iterator), epoch_acc / len(iterator)
+
+def evaluate_3_channel(model, iterator, criterion, device):
+	epoch_loss = 0; epoch_acc = 0
+	model.eval()
+	with torch.no_grad():
+		for (x, y) in tqdm(iterator, desc='Evaluating', leave=False):
+			x = x.to(device)
+			y = y.to(device)
+			y_pred, _ = model(x)
+			loss = criterion(y_pred, y)
+			acc = calculate_accuracy(y_pred, y)
+			epoch_loss += loss.item()
+			epoch_acc += acc.item()
+	return epoch_loss / len(iterator), epoch_acc / len(iterator)
+
+def get_predictions_3_channel(model, iterator, device):
+	model.eval()
+	images = []; labels = []; probs = []
+	with torch.no_grad():
+		for (x, y) in iterator:
+			x = x.to(device)
+			y_pred, _ = model(x)
+			y_prob = TF.softmax(y_pred, dim=-1)
+			images.append(x.cpu())
+			labels.append(y.cpu())
+			probs.append(y_prob.cpu())
+	images = torch.cat(images, dim=0)
+	labels = torch.cat(labels, dim=0)
+	probs = torch.cat(probs, dim=0)
+	return images, labels, probs
+
+def ResNet_achitecture_choices(ResNet_achitecture):
 	ResNetConfig = namedtuple('ResNetConfig', ['block', 'n_blocks', 'channels'])
 	if ResNet_achitecture == 'ResNet20':
 		n_blocks = [3, 3, 3]
@@ -264,12 +310,4 @@ def ResNet_achitecture_choices(ResNet_achitecture, input_channels):
 		print('Using ResNet1202')
 	else:
 		print('out of ResNet architectures')
-		return None
-
-	channels = [16, 16, 16]
-	for i in range(1, len(channels)):
-		channels[i] = channels[i-1] * 2 if i in [1,2] else channels[i-1]
-	channels = [c * input_channels // 3 for c in channels]  # Scale channels to match input_channels
-	block = NNA.BasicBlock1D
-
-	return ResNetConfig(block=block, n_blocks=n_blocks, channels=channels) 
+	return ResNetConfig(block = NNA.BasicBlock, n_blocks = n_blocks, channels = [16, 32, 64])

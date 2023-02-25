@@ -26,7 +26,7 @@ step 0: Predifined Parameters
 
 batch_size = 16
 val_ratio = 0.8
-epochs = 100
+epochs = 200
 save_model = '../trained_models/NNWD.pt'
 learning_rate = 0.001
 model_name = 'NeuralNetWithDropout'
