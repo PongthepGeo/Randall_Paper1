@@ -30,7 +30,7 @@ le = LabelEncoder()
 data['Facies'] = le.fit_transform(data['Facies'])
 # print(data.describe())
 # print(data['Facies'].unique())
-# print(data['Well Name'].unique())
+print(data['Well Name'].unique())
 
 '''
 step 2: Creating Train, Validation, and Test Sets.

@@ -1,12 +1,22 @@
 #-----------------------------------------------------------------------------------------#
+import sys
+sys.path.append('./Libs') 
+import neural_network_architectures as NNA
+#-----------------------------------------------------------------------------------------#
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import torch
+import torch.nn.functional as TF
+import time
 #-----------------------------------------------------------------------------------------#
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, f1_score
+from tqdm import tqdm
+# from sklearn import metrics
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, f1_score, precision_recall_fscore_support
 from matplotlib.patches import Patch
-from sklearn.metrics import precision_recall_fscore_support
+# from sklearn.metrics import precision_recall_fscore_support
+from collections import namedtuple
 #-----------------------------------------------------------------------------------------#
 params = {
 	'savefig.dpi': 300,  
@@ -75,7 +85,7 @@ def difference(logs, pre, label):
 
 def custom_metric(logs, label, predictions):
 	lithocolors  = ['#F4D03F', '#F5B041', '#DC7633', '#6E2C00', '#1B4F72',
-                    '#2E86C1', '#AED6F1', '#A569BD', '#196F3D']
+					'#2E86C1', '#AED6F1', '#A569BD', '#196F3D']
 	logs = logs.sort_values(by='Depth', ascending=True)
 	cmap = colors.ListedColormap(lithocolors)
 	ztop = logs.Depth.min(); zbot=logs.Depth.max()
@@ -93,7 +103,7 @@ def custom_metric(logs, label, predictions):
 	legend_elements = [Patch(facecolor='black', edgecolor='black', label='incorrect'),
 					   Patch(facecolor='yellow', edgecolor='black', label='correct')]
 	ax3.legend(handles=legend_elements, bbox_to_anchor=(1.9, 1.01),
-               framealpha=1, edgecolor='black')	
+			   framealpha=1, edgecolor='black')	
 
 	for ax in f.get_axes():
 		ax.label_outer()
@@ -107,7 +117,7 @@ def custom_metric(logs, label, predictions):
 	f.suptitle('Well: %s'%logs.iloc[0]['Well Name'])
 	plt.tight_layout()
 	# plt.savefig('data_out/' + save_file + '.svg', format='svg',
-    #             bbox_inches='tight', transparent=True, pad_inches=0.1)
+	#             bbox_inches='tight', transparent=True, pad_inches=0.1)
 	plt.show()
 	list_true_facies = (logs[label].sort_values(ascending=True)).unique()
 	list_pre_facies = np.unique(predictions)
@@ -129,12 +139,12 @@ def plot_confusion_matrix(y_pred, data, test_well, y_test):
 	lithofacies = ['SS', 'CSiS', 'FSiS', 'SiSh', 'MS', 'WS', 'D', 'PS', 'BS']
 	cm(y_pred, data, test_well, lithofacies)
 	precision, recall, fscore, support = precision_recall_fscore_support(y_test,
-                                                                         y_pred, average='weighted', zero_division=1)
+																		 y_pred, average='weighted', zero_division=1)
 	print('precision: ', precision,
-          '\nrecall: ', recall,
-          '\nf1 score: ', fscore,
-          '\nsupport: ', support
-          )
+		  '\nrecall: ', recall,
+		  '\nf1 score: ', fscore,
+		  '\nsupport: ', support
+		  )
 
 def plot_feature_importances(clf_xgb, data):
 	plt.figure(figsize=(10, 6))
@@ -149,3 +159,117 @@ def plot_feature_importances(clf_xgb, data):
 	plt.title('Feature Importances')
 	plt.tight_layout()
 	plt.show()
+
+def calculate_accuracy(y_pred, y):
+	top_pred = y_pred.argmax(1, keepdim=True)
+	correct = top_pred.eq(y.view_as(top_pred)).sum()
+	acc = correct.float() / y.shape[0]
+	return acc
+
+def epoch_time(start_time, end_time):
+	elapsed_time = end_time - start_time
+	elapsed_mins = int(elapsed_time / 60)
+	elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
+	return elapsed_mins, elapsed_secs
+
+def loss_history_plot(history_train, history_valid, model_name):
+	axis_x = np.linspace(0, len(history_train), len(history_train))
+	plt.plot(axis_x, history_train, linestyle='solid',
+			 color='red', linewidth=1, marker='o', ms=5, label='train')
+	plt.plot(axis_x, history_valid, linestyle='solid',
+			 color='blue', linewidth=1, marker='o', ms=5, label='valid')
+	plt.xlabel('epoch')
+	plt.ylabel('accuracy')
+	plt.legend(['train', 'valid'])
+	plt.title(model_name + ': ' + 'Accuracy', fontweight='bold')
+	plt.show()
+
+def get_predictions(model, iterator, device):
+	model.eval()
+	images = []; labels = []; probs = []
+	with torch.no_grad():
+		for (x, y) in iterator:
+			x = x.to(device)
+			y_pred = model(x)
+			y_prob = TF.softmax(y_pred, dim=-1)
+			images.append(x.cpu())
+			labels.append(y.cpu())
+			probs.append(y_prob.cpu())
+	images = torch.cat(images, dim=0)
+	labels = torch.cat(labels, dim=0)
+	probs = torch.cat(probs, dim=0)
+	return images, labels, probs
+
+def plot_confusion_matrix_tabular(labels, pred_labels, classes):
+	fig = plt.figure()
+	ax = fig.add_subplot(1, 1, 1)
+	cm = confusion_matrix(labels, pred_labels)
+	cm = ConfusionMatrixDisplay(cm, display_labels=classes)
+	cm.plot(values_format='d', cmap='Greens', ax=ax)
+	plt.show()
+
+def train(model, device, train_loader, optimizer, criterion):
+	model.train()
+	train_loss = 0
+	train_acc = 0
+	for X, y in tqdm(train_loader, desc='Training', leave=False, miniters=5):
+		X, y = X.to(device), y.to(device)
+		optimizer.zero_grad()
+		output = model(X)
+		loss = criterion(output, y)
+		loss.backward()
+		optimizer.step()
+		train_loss += loss.item() * X.size(0)
+		_, predicted = torch.max(output.data, 1)
+		train_acc += (predicted == y).sum().item()
+	train_loss /= len(train_loader.dataset)
+	train_acc /= len(train_loader.dataset)
+	return train_loss, train_acc
+
+def evaluate(model, device, val_loader, criterion):
+	model.eval()
+	val_loss = 0
+	val_acc = 0
+	with torch.no_grad():
+		for X, y in tqdm(val_loader, desc='Validation', leave=False, miniters=5):
+			X, y = X.to(device), y.to(device)
+			output = model(X)
+			loss = criterion(output, y)
+			val_loss += loss.item() * X.size(0)
+			_, predicted = torch.max(output.data, 1)
+			val_acc += (predicted == y).sum().item()
+	val_loss /= len(val_loader.dataset)
+	val_acc /= len(val_loader.dataset)
+	return val_loss, val_acc
+
+def ResNet_achitecture_choices(ResNet_achitecture, input_channels):
+	ResNetConfig = namedtuple('ResNetConfig', ['block', 'n_blocks', 'channels'])
+	if ResNet_achitecture == 'ResNet20':
+		n_blocks = [3, 3, 3]
+		print('Using ResNet20')
+	elif ResNet_achitecture == 'ResNet32':
+		n_blocks = [5, 5, 5]
+		print('Using ResNet32')
+	elif ResNet_achitecture == 'ResNet44':
+		n_blocks = [7, 7, 7]
+		print('Using ResNet44')
+	elif ResNet_achitecture == 'ResNet56':
+		n_blocks = [9, 9, 9]
+		print('Using ResNet56')
+	elif ResNet_achitecture == 'ResNet110':
+		n_blocks = [18, 18, 18]
+		print('Using ResNet110')
+	elif ResNet_achitecture == 'ResNet1202':
+		n_blocks = [20, 20, 20]
+		print('Using ResNet1202')
+	else:
+		print('out of ResNet architectures')
+		return None
+
+	channels = [16, 16, 16]
+	for i in range(1, len(channels)):
+		channels[i] = channels[i-1] * 2 if i in [1,2] else channels[i-1]
+	channels = [c * input_channels // 3 for c in channels]  # Scale channels to match input_channels
+	block = NNA.BasicBlock1D
+
+	return ResNetConfig(block=block, n_blocks=n_blocks, channels=channels) 
