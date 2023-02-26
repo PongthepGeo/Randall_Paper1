@@ -26,8 +26,8 @@ step 0: Predifined Parameters
 
 batch_size = 16
 val_ratio = 0.8
-epochs = 50
-learning_rate = 1e-3
+epochs = 200
+learning_rate = 1e-5
 model_name = 'NeuralNetWithDropout'
 save_model = '../trained_models/' + model_name + '.pt'
 lithofacies = ['SS', 'CSiS', 'FSiS', 'SiSh', 'MS', 'WS', 'D', 'PS', 'BS']

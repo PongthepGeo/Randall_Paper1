@@ -180,6 +180,7 @@ def loss_history_plot(history_train, history_valid, model_name):
 	plt.ylabel('accuracy')
 	plt.legend(['train', 'valid'])
 	plt.title(model_name + ': ' + 'Accuracy', fontweight='bold')
+	plt.savefig('data_out/' + 'overfit' + '.svg', format='svg', bbox_inches='tight', transparent=True, pad_inches=0)
 	plt.show()
 
 def get_predictions1D(model, iterator, device):

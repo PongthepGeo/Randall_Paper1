@@ -26,12 +26,12 @@ step 0:
 '''
 
 data_dir = '../facies' # where is the main folder containing subclasses
-train_size = 0.6; val_size = 0.35; test_size = 0.05
+train_size = 0.9; val_size = 0.05; test_size = 0.05
 batch_size = 512
 image_dim_1 = 33; image_dim_2 = 33
 output_dim = 9 # should equal to number of classes
 learning_rate = 1e-5
-epochs = 50
+epochs = 200
 model_name = 'ResNet32'
 save_model = '../trained_models/' + model_name + '.pt'
 lithofacies = ['SS', 'CSiS', 'FSiS', 'SiSh', 'MS', 'WS', 'D', 'PS', 'BS']
