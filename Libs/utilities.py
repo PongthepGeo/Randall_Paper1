@@ -12,10 +12,8 @@ import torch.nn.functional as TF
 import time
 #-----------------------------------------------------------------------------------------#
 from tqdm import tqdm
-# from sklearn import metrics
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, f1_score, precision_recall_fscore_support
 from matplotlib.patches import Patch
-# from sklearn.metrics import precision_recall_fscore_support
 from collections import namedtuple
 #-----------------------------------------------------------------------------------------#
 params = {
@@ -139,7 +137,7 @@ def plot_confusion_matrix(y_pred, data, test_well, y_test):
 	lithofacies = ['SS', 'CSiS', 'FSiS', 'SiSh', 'MS', 'WS', 'D', 'PS', 'BS']
 	cm(y_pred, data, test_well, lithofacies)
 	precision, recall, fscore, support = precision_recall_fscore_support(y_test,
-																		 y_pred, average='weighted', zero_division=1)
+	y_pred, average='weighted', zero_division=1)
 	print('precision: ', precision,
 		  '\nrecall: ', recall,
 		  '\nf1 score: ', fscore,
@@ -184,7 +182,7 @@ def loss_history_plot(history_train, history_valid, model_name):
 	plt.title(model_name + ': ' + 'Accuracy', fontweight='bold')
 	plt.show()
 
-def get_predictions(model, iterator, device):
+def get_predictions1D(model, iterator, device):
 	model.eval()
 	images = []; labels = []; probs = []
 	with torch.no_grad():
@@ -208,7 +206,7 @@ def plot_confusion_matrix_tabular(labels, pred_labels, classes):
 	cm.plot(values_format='d', cmap='Greens', ax=ax)
 	plt.show()
 
-def train(model, device, train_loader, optimizer, criterion):
+def train1D(model, device, train_loader, optimizer, criterion):
 	model.train()
 	train_loss = 0
 	train_acc = 0
@@ -226,7 +224,7 @@ def train(model, device, train_loader, optimizer, criterion):
 	train_acc /= len(train_loader.dataset)
 	return train_loss, train_acc
 
-def evaluate(model, device, val_loader, criterion):
+def evaluate1D(model, device, val_loader, criterion):
 	model.eval()
 	val_loss = 0
 	val_acc = 0
@@ -242,7 +240,7 @@ def evaluate(model, device, val_loader, criterion):
 	val_acc /= len(val_loader.dataset)
 	return val_loss, val_acc
 
-def train_3_channel(model, iterator, optimizer, criterion, device):
+def train2D(model, iterator, optimizer, criterion, device):
 	epoch_loss = 0; epoch_acc = 0
 	model.train()
 	for (x, y) in tqdm(iterator, desc='Training', leave=False):
@@ -258,7 +256,7 @@ def train_3_channel(model, iterator, optimizer, criterion, device):
 		epoch_acc += acc.item()
 	return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
-def evaluate_3_channel(model, iterator, criterion, device):
+def evaluate2D(model, iterator, criterion, device):
 	epoch_loss = 0; epoch_acc = 0
 	model.eval()
 	with torch.no_grad():
@@ -272,7 +270,7 @@ def evaluate_3_channel(model, iterator, criterion, device):
 			epoch_acc += acc.item()
 	return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
-def get_predictions_3_channel(model, iterator, device):
+def get_predictions2D(model, iterator, device):
 	model.eval()
 	images = []; labels = []; probs = []
 	with torch.no_grad():
@@ -311,3 +309,20 @@ def ResNet_achitecture_choices(ResNet_achitecture):
 	else:
 		print('out of ResNet architectures')
 	return ResNetConfig(block = NNA.BasicBlock, n_blocks = n_blocks, channels = [16, 32, 64])
+
+def preview_well_logs(train_data, class_names):
+	random_train_indices = np.random.choice(len(train_data), size=16, replace=False)
+	_, axes = plt.subplots(nrows=4, ncols=4, gridspec_kw={'hspace': 0.6})
+	for i, idx in enumerate(random_train_indices):
+		data, label = train_data[idx]
+		row, col = i // 4, i % 4
+		if data.shape[-1] == 1:
+			# grayscale image
+			img_arr = np.stack([data.squeeze().numpy()] * 3, axis=-1)
+		else:
+			# RGB image
+			img_arr = data.permute(1, 2, 0).numpy()
+		axes[row, col].imshow(img_arr, cmap='rainbow')
+		axes[row, col].set_title(class_names[label])
+		axes[row, col].axis('off')
+	plt.show()

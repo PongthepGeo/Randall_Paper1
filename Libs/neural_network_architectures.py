@@ -1,6 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as TF
+import numpy as np
+#-----------------------------------------------------------------------------------------#
+from torchvision import transforms
+from PIL import Image
+from torch.utils.data import Dataset
 #-----------------------------------------------------------------------------------------#
 
 # NOTE NeuralNetWithDropout (1D)
@@ -131,3 +136,23 @@ class BasicBlock(nn.Module):
         x = self.relu(x)
         return x
 
+class FaciesWellLog(Dataset):
+    def __init__(self, data_list, image_dim_1, image_dim_2):
+        self.data = data_list
+        self.image_dim_1 = image_dim_1
+        self.image_dim_2 = image_dim_2
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((image_dim_1, image_dim_2)),
+        ])
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        data_path = self.data[idx][0]
+        label = self.data[idx][1]
+        with Image.open(data_path) as img:
+            img_arr = np.asarray(img.convert('RGB')).copy()
+        data = self.transform(img_arr)
+        return data, label

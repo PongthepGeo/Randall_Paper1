@@ -26,10 +26,10 @@ step 0: Predifined Parameters
 
 batch_size = 16
 val_ratio = 0.8
-epochs = 200
-save_model = '../trained_models/NNWD.pt'
-learning_rate = 0.001
+epochs = 50
+learning_rate = 1e-3
 model_name = 'NeuralNetWithDropout'
+save_model = '../trained_models/' + model_name + '.pt'
 lithofacies = ['SS', 'CSiS', 'FSiS', 'SiSh', 'MS', 'WS', 'D', 'PS', 'BS']
 
 '''
@@ -82,31 +82,31 @@ n_train_examples = int(len(X_train_tensor) * val_ratio)
 n_valid_examples = len(X_train_tensor) - n_train_examples
 # NOTE 2
 train_data, val_data = data.random_split(data.TensorDataset(X_train_tensor, y_train_tensor),
-    [n_train_examples, n_valid_examples])
+	[n_train_examples, n_valid_examples])
 # NOTE 3
 train_dataset = data.TensorDataset(train_data.dataset.tensors[0],
-                                   train_data.dataset.tensors[1])
+								   train_data.dataset.tensors[1])
 val_dataset = data.TensorDataset(val_data.dataset.tensors[0],
-                                 val_data.dataset.tensors[1])
+								 val_data.dataset.tensors[1])
 test_dataset = data.TensorDataset(X_test_tensor, y_test_tensor)
 # NOTE 4
 train_loader = data.DataLoader(
-    train_dataset,
-    batch_size=batch_size,
-    shuffle=True,
-    drop_last=True
+	train_dataset,
+	batch_size=batch_size,
+	shuffle=True,
+	drop_last=True
 )
 val_loader = data.DataLoader(
-    val_dataset,
-    batch_size=batch_size,
-    shuffle=False,
-    drop_last=False
+	val_dataset,
+	batch_size=batch_size,
+	shuffle=False,
+	drop_last=True
 )
 test_loader = data.DataLoader(
-    test_dataset,
-    batch_size=batch_size,
-    shuffle=False,
-    drop_last=False
+	test_dataset,
+	batch_size=batch_size,
+	shuffle=False,
+	drop_last=True
 )
 
 '''
@@ -127,19 +127,19 @@ history_train_acc = []
 history_valid_acc = []
 best_valid_loss = float('inf')
 for epoch in range(epochs):
-    start_time = time.monotonic()
-    train_loss, train_acc = U.train(model, device, train_loader, optimizer, criterion)
-    valid_loss, valid_acc = U.evaluate(model, device, val_loader, criterion)
-    history_train_acc.append(train_acc)
-    history_valid_acc.append(valid_acc)
-    if valid_loss < best_valid_loss:
-        best_valid_loss = valid_loss
-        torch.save(model.state_dict(), save_model)
-    end_time = time.monotonic()
-    epoch_mins, epoch_secs = U.epoch_time(start_time, end_time)
-    print(f'Epoch: {epoch+1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
-    print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.2f}%')
-    print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
+	start_time = time.monotonic()
+	train_loss, train_acc = U.train1D(model, device, train_loader, optimizer, criterion)
+	valid_loss, valid_acc = U.evaluate1D(model, device, val_loader, criterion)
+	history_train_acc.append(train_acc)
+	history_valid_acc.append(valid_acc)
+	if valid_loss < best_valid_loss:
+		best_valid_loss = valid_loss
+		torch.save(model.state_dict(), save_model)
+	end_time = time.monotonic()
+	epoch_mins, epoch_secs = U.epoch_time(start_time, end_time)
+	print(f'Epoch: {epoch+1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
+	print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.2f}%')
+	print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
 U.loss_history_plot(history_train_acc, history_valid_acc, model_name)
 
 '''
@@ -147,8 +147,8 @@ step 5: Confusion Matrix.
 '''
 
 model.load_state_dict(torch.load(save_model))
-test_loss, test_acc = U.evaluate(model, device, test_loader, criterion)
+test_loss, test_acc = U.evaluate1D(model, device, test_loader, criterion)
 print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc*100:.2f}%')
-images, labels, probs = U.get_predictions(model, test_loader, device)
+images, labels, probs = U.get_predictions1D(model, test_loader, device)
 pred_labels = torch.argmax(probs, 1)
 U.plot_confusion_matrix_tabular(labels, pred_labels, lithofacies)
